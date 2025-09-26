@@ -4,7 +4,7 @@ pipeline {
     parameters {
         choice(
             name: 'ENV',
-            choices: ['Dev', 'ST', 'CAT'],
+            choices: ['Dev', 'ST', 'eks' ,],
             description: 'Select the environment to deploy'
         )
     }
@@ -12,7 +12,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/lakshmandevops5152/devops.git'
+                git branch: 'main', url: 'https://github.com/lakshmandevops5152/terraform-eks.git'
             }
         }
 
