@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
-    bucket = "mytodoappbucket"
+    bucket = "lakshman-trraform"
     key    = "eks/terraform.tfstate"
-    region = "us-east-2"
+    region = "ap-south-1"
   }
 }
