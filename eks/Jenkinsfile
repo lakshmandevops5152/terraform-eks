@@ -1,55 +1,71 @@
 pipeline {
     agent any
-
-    parameters {
-        choice(
-            name: 'ENV',
-            choices: ['Dev', 'ST', 'CAT'],
-            description: 'Select the environment to deploy'
-        )
+    environment {
+        AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+        AWS_DEFAULT_REGION = 'us-east-2'
     }
-
-    stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'main', url: 'https://github.com/lakshmandevops5152/devops.git'
+    stages{
+        stage('Checkout SCM'){
+            steps{
+                script{
+                    //Generate  using pipeline syntax
+                }
             }
         }
-
-        stage('Terraform Init') {
-            steps {
-                ansiColor('xterm') {
-                    dir("${params.ENV}") {   // 👈 dynamically use selected env folder
-                        sh 'terraform init -reconfigure'
+         stage('Initializing Terraform'){
+            steps{
+                script{
+                    dir('EKS'){
+                         sh 'terraform init'
                     }
                 }
             }
         }
-
-        stage('Terraform Plan') {
-            steps {
-                ansiColor('xterm') {
-                    dir("${params.ENV}") {
-                        sh 'terraform plan -out=tfplan'
-                        sh 'terraform show tfplan'
+        stage('Formating terraform code'){
+            steps{
+                script{
+                    dir('EKS'){
+                         sh 'terraform fmt'
                     }
                 }
             }
         }
-
-        stage('Approval') {
-            steps {
-                script {
-                    input message: "Do you want to apply Terraform changes for ${params.ENV}?", ok: "Yes, Apply"
+        stage('Validating Terraform'){
+            steps{
+                script{
+                    dir('EKS'){
+                         sh 'terraform validate'
+                    }
                 }
             }
         }
-
-        stage('Terraform Apply') {
-            steps {
-                ansiColor('xterm') {
-                    dir("${params.ENV}") {
-                        sh 'terraform apply -auto-approve tfplan'
+        stage('Previewing the infrastructure'){
+            steps{
+                script{
+                    dir('EKS'){
+                         sh 'terraform plan'
+                    }
+                    input(message: "Are you sure to proceed?", ok: "proceed")
+                }
+            }
+        }
+        stage('Creating/Destroying an EKS cluster'){
+            steps{
+                script{
+                    dir('EKS'){
+                         sh 'terraform $action --auto-approve'
+                    }
+                }
+            }
+        }
+        stage("Deploying Nginx"){
+            steps{
+                script{
+                    dir('EKS/configuration-files'){
+                        sh 'aws eks update-kubeconfig --name my-eks-cluster'
+                        sh 'kubectl apply -f deployment.yml'
+                        sh 'kubectl apply -f service.yml'
                     }
                 }
             }
