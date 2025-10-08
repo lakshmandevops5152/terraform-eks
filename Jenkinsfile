@@ -20,33 +20,4 @@ pipeline {
             }
         }
 
-        stage('Terraform Plan') {
-            steps {
-                ansiColor('xterm') {
-                 {
-                        sh 'terraform plan -out=tfplan'
-                        sh 'terraform show tfplan'
-                    }
-                }
-            }
-        }
-
-        stage('Approval') {
-            steps {
-                script {
-                    input message: "Do you want to apply Terraform changes for ${params.ENV}?", ok: "Yes, Apply"
-                }
-            }
-        }
-
-        stage('Terraform Apply') {
-            steps {
-                ansiColor('xterm') {
-                    dir("${params.ENV}") {
-                        sh 'terraform apply -auto-approve tfplan'
-                    }
-                }
-            }
-        }
-    }
-}
+        
