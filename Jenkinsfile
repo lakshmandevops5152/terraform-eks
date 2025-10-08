@@ -12,7 +12,7 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 ansiColor('xterm') {
-                    dir("") {   // 👈 dynamically use selected env folder
+                     {   // 👈 dynamically use selected env folder
                         sh 'terraform init'
                         sh 'terraform plan'
                     }
@@ -23,7 +23,7 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 ansiColor('xterm') {
-                    dir() {
+                 {
                         sh 'terraform plan -out=tfplan'
                         sh 'terraform show tfplan'
                     }
