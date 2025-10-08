@@ -14,6 +14,7 @@ pipeline {
                 ansiColor('xterm') {
                     dir("") {   // 👈 dynamically use selected env folder
                         sh 'terraform init'
+                        sh 'terraform plan'
                     }
                 }
             }
