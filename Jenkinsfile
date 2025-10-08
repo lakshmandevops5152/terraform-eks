@@ -12,8 +12,8 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 ansiColor('xterm') {
-                    dir("${params.ENV}") {   // 👈 dynamically use selected env folder
-                        sh 'terraform init -reconfigure'
+                    dir("") {   // 👈 dynamically use selected env folder
+                        sh 'terraform init'
                     }
                 }
             }
