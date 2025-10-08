@@ -19,12 +19,14 @@ pipeline {
             }
         }
 
-        stage('Approval') {
+        stage('Approval for Apply') {
             steps {
                 script {
                     def userInput = input(
-                        id: 'Proceed1', message: 'Do you want to apply the Terraform changes?', parameters: [
-                            [$class: 'BooleanParameterDefinition', defaultValue: false, description: 'Approve to apply Terraform plan', name: 'Approved']
+                        id: 'ApplyApproval',
+                        message: 'Do you want to apply the Terraform plan?',
+                        parameters: [
+                            [$class: 'BooleanParameterDefinition', defaultValue: false, description: 'Approve to apply Terraform changes', name: 'Approved']
                         ]
                     )
                     if (!userInput) {
@@ -35,12 +37,34 @@ pipeline {
         }
 
         stage('Terraform Apply') {
-            when {
-                expression { return true } // runs only if approved
-            }
             steps {
                 ansiColor('xterm') {
                     sh 'terraform apply -auto-approve tfplan'
+                }
+            }
+        }
+
+        stage('Approval for Destroy') {
+            steps {
+                script {
+                    def destroyInput = input(
+                        id: 'DestroyApproval',
+                        message: 'Do you want to destroy the Terraform infrastructure?',
+                        parameters: [
+                            [$class: 'BooleanParameterDefinition', defaultValue: false, description: 'Approve to destroy Terraform resources', name: 'DestroyApproved']
+                        ]
+                    )
+                    if (!destroyInput) {
+                        error("Terraform destroy was not approved. Pipeline stopped.")
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Destroy') {
+            steps {
+                ansiColor('xterm') {
+                    sh 'terraform destroy -auto-approve'
                 }
             }
         }
