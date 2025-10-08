@@ -22,7 +22,7 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 ansiColor('xterm') {
-                    dir("${params.ENV}") {
+                    dir() {
                         sh 'terraform plan -out=tfplan'
                         sh 'terraform show tfplan'
                     }
