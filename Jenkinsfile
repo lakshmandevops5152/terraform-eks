@@ -1,7 +1,6 @@
 pipeline {
     agent any
 
-    
     stages {
         stage('Checkout') {
             steps {
@@ -9,15 +8,15 @@ pipeline {
             }
         }
 
-        stage('Terraform Init') {
+        stage('Terraform Init & Plan') {
             steps {
                 ansiColor('xterm') {
-                     {   // 👈 dynamically use selected env folder
-                        sh 'terraform init'
-                        sh 'terraform plan'
-                    }
+                    sh '''
+                        terraform init
+                        terraform plan
+                    '''
                 }
             }
         }
-
-        
+    }
+}
