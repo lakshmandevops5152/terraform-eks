@@ -3,8 +3,7 @@ pipeline {
 
     parameters {
         choice(
-            name: 'ENV',
-            choices: [
+            
             description: 'Select the environment to deploy'
         )
     }
