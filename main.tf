@@ -14,14 +14,14 @@ resource "aws_vpc" "eks_vpc" {
 }
 
 # ---------------------------
-# Subnets
+# Subnets (non-overlapping)
 # ---------------------------
 data "aws_availability_zones" "available" {}
 
 resource "aws_subnet" "eks_subnet" {
   count                   = 2
   vpc_id                  = aws_vpc.eks_vpc.id
-  cidr_block              = cidrsubnet(aws_vpc.eks_vpc.cidr_block, 8, count.index)
+  cidr_block              = element(["10.0.10.0/24", "10.0.20.0/24"], count.index)
   availability_zone       = element(data.aws_availability_zones.available.names, count.index)
   map_public_ip_on_launch = true
 
@@ -149,56 +149,4 @@ resource "aws_iam_role_policy_attachment" "worker_node_policy" {
 }
 
 resource "aws_iam_role_policy_attachment" "cni_policy" {
-  role       = aws_iam_role.eks_worker_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-}
-
-resource "aws_iam_role_policy_attachment" "registry_policy" {
-  role       = aws_iam_role.eks_worker_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-}
-
-# ---------------------------
-# IAM Instance Profile for Worker Nodes
-# ---------------------------
-resource "aws_iam_instance_profile" "eks_worker_profile" {
-  name = "eks-worker-instance-profile"
-  role = aws_iam_role.eks_worker_role.name
-}
-
-# ---------------------------
-# Launch Template for Worker Nodes
-# ---------------------------
-resource "aws_launch_template" "eks_worker_lt" {
-  name_prefix   = "eks-worker-"
-  image_id      = "ami-0360c520857e3138f"
-  instance_type = "t3.medium"
-  key_name      = "windows"
-
-  iam_instance_profile {
-    name = aws_iam_instance_profile.eks_worker_profile.name
-  }
-
-  vpc_security_group_ids = [aws_security_group.eks_sg.id]
-}
-
-# ---------------------------
-# Auto Scaling Group for Worker Nodes
-# ---------------------------
-resource "aws_autoscaling_group" "eks_worker_asg" {
-  desired_capacity     = 2
-  max_size             = 3
-  min_size             = 1
-  vpc_zone_identifier  = aws_subnet.eks_subnet[*].id
-
-  launch_template {
-    id      = aws_launch_template.eks_worker_lt.id
-    version = "$Latest"
-  }
-
-  tag {
-    key                 = "Name"
-    value               = "eks-worker-node"
-    propagate_at_launch = true
-  }
-}
+  role       = aws_iam_
