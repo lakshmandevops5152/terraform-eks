@@ -1,184 +1,57 @@
-provider "aws" {
-  region = "ap-south-1"
-}
-
 # -------------------------------
-# 1. Create VPC and Networking
+# 6. Auto Scaling Group for Worker Nodes
 # -------------------------------
-resource "aws_vpc" "eks_vpc" {
-  cidr_block = "10.0.0.0/16"
-  tags = {
-    Name = "eks-vpc"
-  }
-}
 
-resource "aws_subnet" "eks_subnet1" {
-  vpc_id                  = aws_vpc.eks_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "ap-south-1a"
-  map_public_ip_on_launch = true
-  tags = {
-    Name = "eks-subnet-1"
-  }
-}
+resource "aws_launch_template" "eks_launch_template" {
+  name_prefix   = "eks-node-lt-"
+  image_id      = "ami-02d26659fd82cf299"
+  instance_type = "t3.medium"
+  key_name      = "windows"
 
-resource "aws_subnet" "eks_subnet2" {
-  vpc_id                  = aws_vpc.eks_vpc.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = "ap-south-1b"
-  map_public_ip_on_launch = true
-  tags = {
-    Name = "eks-subnet-2"
-  }
-}
-
-resource "aws_internet_gateway" "eks_igw" {
-  vpc_id = aws_vpc.eks_vpc.id
-  tags = {
-    Name = "eks-igw"
-  }
-}
-
-resource "aws_route_table" "eks_route_table" {
-  vpc_id = aws_vpc.eks_vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.eks_igw.id
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups             = [aws_security_group.eks_cluster_sg.id]
   }
 
-  tags = {
-    Name = "eks-route-table"
-  }
-}
-
-resource "aws_route_table_association" "eks_rta1" {
-  subnet_id      = aws_subnet.eks_subnet1.id
-  route_table_id = aws_route_table.eks_route_table.id
-}
-
-resource "aws_route_table_association" "eks_rta2" {
-  subnet_id      = aws_subnet.eks_subnet2.id
-  route_table_id = aws_route_table.eks_route_table.id
-}
-
-# -------------------------------
-# 2. Security Group for EKS Cluster
-# -------------------------------
-resource "aws_security_group" "eks_cluster_sg" {
-  name        = "eks-cluster-sg"
-  description = "Allow all inbound and outbound traffic for EKS"
-  vpc_id      = aws_vpc.eks_vpc.id
-
-  ingress {
-    description = "Allow all inbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "eks-node"
+    }
   }
 
-  egress {
-    description = "Allow all outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  user_data = base64encode(<<-EOF
+              #!/bin/bash
+              /etc/eks/bootstrap.sh ${aws_eks_cluster.eks_cluster.name}
+              EOF
+  )
+}
+
+resource "aws_autoscaling_group" "eks_asg" {
+  name                      = "eks-node-asg"
+  desired_capacity          = 2
+  max_size                  = 3
+  min_size                  = 1
+  vpc_zone_identifier       = [aws_subnet.eks_subnet1.id, aws_subnet.eks_subnet2.id]
+  health_check_grace_period = 300
+  health_check_type         = "EC2"
+
+  launch_template {
+    id      = aws_launch_template.eks_launch_template.id
+    version = "$Latest"
   }
 
-  tags = {
-    Name = "eks-cluster-sg"
-  }
-}
-
-# -------------------------------
-# 3. IAM Roles
-# -------------------------------
-resource "aws_iam_role" "eks_cluster_role" {
-  name = "eks-cluster-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "eks.amazonaws.com"
-      }
-      Action = "sts:AssumeRole"
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
-  role       = aws_iam_role.eks_cluster_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-}
-
-resource "aws_iam_role" "eks_node_role" {
-  name = "eks-node-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "ec2.amazonaws.com"
-      }
-      Action = "sts:AssumeRole"
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "eks_worker_node_policy" {
-  role       = aws_iam_role.eks_node_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-}
-
-resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
-  role       = aws_iam_role.eks_node_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-}
-
-resource "aws_iam_role_policy_attachment" "eks_container_registry_policy" {
-  role       = aws_iam_role.eks_node_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-}
-
-# -------------------------------
-# 4. EKS Cluster
-# -------------------------------
-resource "aws_eks_cluster" "eks_cluster" {
-  name     = "my-eks-cluster"
-  role_arn = aws_iam_role.eks_cluster_role.arn
-
-  vpc_config {
-    subnet_ids         = [aws_subnet.eks_subnet1.id, aws_subnet.eks_subnet2.id]
-    security_group_ids = [aws_security_group.eks_cluster_sg.id]
+  tag {
+    key                 = "Name"
+    value               = "eks-node"
+    propagate_at_launch = true
   }
 
-  depends_on = [aws_iam_role_policy_attachment.eks_cluster_policy]
-}
-
-# -------------------------------
-# 5. Node Group
-# -------------------------------
-resource "aws_eks_node_group" "eks_nodes" {
-  cluster_name    = aws_eks_cluster.eks_cluster.name
-  node_group_name = "eks-node-group"
-  node_role_arn   = aws_iam_role.eks_node_role.arn
-  subnet_ids      = [aws_subnet.eks_subnet1.id, aws_subnet.eks_subnet2.id]
-
-  scaling_config {
-    desired_size = 2
-    max_size     = 3
-    min_size     = 1
+  lifecycle {
+    create_before_destroy = true
   }
-
-  instance_types = ["t3.medium"]
 
   depends_on = [
-    aws_iam_role_policy_attachment.eks_worker_node_policy,
-    aws_iam_role_policy_attachment.eks_cni_policy,
-    aws_iam_role_policy_attachment.eks_container_registry_policy
+    aws_eks_cluster.eks_cluster
   ]
 }
