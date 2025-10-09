@@ -16,6 +16,8 @@ resource "aws_vpc" "eks_vpc" {
 # ---------------------------
 # Subnets
 # ---------------------------
+data "aws_availability_zones" "available" {}
+
 resource "aws_subnet" "eks_subnet" {
   count                   = 2
   vpc_id                  = aws_vpc.eks_vpc.id
@@ -27,8 +29,6 @@ resource "aws_subnet" "eks_subnet" {
     Name = "eks-subnet-${count.index}"
   }
 }
-
-data "aws_availability_zones" "available" {}
 
 # ---------------------------
 # Internet Gateway
@@ -159,6 +159,14 @@ resource "aws_iam_role_policy_attachment" "registry_policy" {
 }
 
 # ---------------------------
+# IAM Instance Profile for Worker Nodes
+# ---------------------------
+resource "aws_iam_instance_profile" "eks_worker_profile" {
+  name = "eks-worker-instance-profile"
+  role = aws_iam_role.eks_worker_role.name
+}
+
+# ---------------------------
 # Launch Template for Worker Nodes
 # ---------------------------
 resource "aws_launch_template" "eks_worker_lt" {
@@ -171,22 +179,23 @@ resource "aws_launch_template" "eks_worker_lt" {
     name = aws_iam_instance_profile.eks_worker_profile.name
   }
 
-  # Use vpc_security_group_ids instead of security_group_ids
   vpc_security_group_ids = [aws_security_group.eks_sg.id]
 }
 
 # ---------------------------
-# Auto Scaling Group
+# Auto Scaling Group for Worker Nodes
 # ---------------------------
 resource "aws_autoscaling_group" "eks_worker_asg" {
   desired_capacity     = 2
   max_size             = 3
   min_size             = 1
   vpc_zone_identifier  = aws_subnet.eks_subnet[*].id
+
   launch_template {
     id      = aws_launch_template.eks_worker_lt.id
     version = "$Latest"
   }
+
   tag {
     key                 = "Name"
     value               = "eks-worker-node"
