@@ -117,19 +117,4 @@ resource "aws_autoscaling_group" "eks_asg" {
   health_check_grace_period = 300
   force_delete              = true
 
-  tags = [
-    {
-      key                 = "Name"
-      value               = "eks-worker-node"
-      propagate_at_launch = true
-    }
-  ]
-}
-
-output "eks_cluster_endpoint" {
-  value = aws_eks_cluster.eks_cluster.endpoint
-}
-
-output "eks_cluster_name" {
-  value = aws_eks_cluster.eks_cluster.name
-}
+  tag {
