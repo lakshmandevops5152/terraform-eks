@@ -7,7 +7,10 @@ provider "aws" {
 # ---------------------------
 resource "aws_vpc" "eks_vpc" {
   cidr_block = "10.0.0.0/16"
-  tags = { Name = "eks-vpc" }
+
+  tags = {
+    Name = "eks-vpc"
+  }
 }
 
 # ---------------------------
@@ -18,10 +21,13 @@ data "aws_availability_zones" "available" {}
 resource "aws_subnet" "eks_subnet" {
   count                   = 2
   vpc_id                  = aws_vpc.eks_vpc.id
-  cidr_block              = element(["10.0.10.0/24","10.0.20.0/24"], count.index)
+  cidr_block              = element(["10.0.10.0/24", "10.0.20.0/24"], count.index)
   availability_zone       = element(data.aws_availability_zones.available.names, count.index)
   map_public_ip_on_launch = true
-  tags = { Name = "eks-subnet-${count.index}" }
+
+  tags = {
+    Name = "eks-subnet-${count.index}"
+  }
 }
 
 # ---------------------------
@@ -29,7 +35,10 @@ resource "aws_subnet" "eks_subnet" {
 # ---------------------------
 resource "aws_internet_gateway" "eks_igw" {
   vpc_id = aws_vpc.eks_vpc.id
-  tags = { Name = "eks-igw" }
+
+  tags = {
+    Name = "eks-igw"
+  }
 }
 
 # ---------------------------
@@ -37,11 +46,15 @@ resource "aws_internet_gateway" "eks_igw" {
 # ---------------------------
 resource "aws_route_table" "eks_rt" {
   vpc_id = aws_vpc.eks_vpc.id
+
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.eks_igw.id
   }
-  tags = { Name = "eks-rt" }
+
+  tags = {
+    Name = "eks-rt"
+  }
 }
 
 resource "aws_route_table_association" "eks_rta" {
@@ -58,8 +71,19 @@ resource "aws_security_group" "eks_sg" {
   description = "Security group for EKS cluster"
   vpc_id      = aws_vpc.eks_vpc.id
 
-  ingress { from_port=0, to_port=65535, protocol="tcp", cidr_blocks=["0.0.0.0/0"] }
-  egress  { from_port=0, to_port=0, protocol="-1", cidr_blocks=["0.0.0.0/0"] }
+  ingress {
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 # ---------------------------
@@ -67,13 +91,16 @@ resource "aws_security_group" "eks_sg" {
 # ---------------------------
 resource "aws_iam_role" "eks_cluster_role" {
   name = "eks-cluster-role"
+
   assume_role_policy = jsonencode({
-    Version="2012-10-17"
-    Statement=[{
-      Action="sts:AssumeRole"
-      Principal={Service="eks.amazonaws.com"}
-      Effect="Allow"
-      Sid=""
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Principal = {
+        Service = "eks.amazonaws.com"
+      }
+      Effect = "Allow"
+      Sid    = ""
     }]
   })
 }
@@ -102,12 +129,15 @@ resource "aws_eks_cluster" "eks_cluster" {
 # ---------------------------
 resource "aws_iam_role" "eks_worker_role" {
   name = "eks-worker-role"
+
   assume_role_policy = jsonencode({
-    Version="2012-10-17"
-    Statement=[{
-      Effect="Allow"
-      Principal={Service="ec2.amazonaws.com"}
-      Action="sts:AssumeRole"
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
     }]
   })
 }
