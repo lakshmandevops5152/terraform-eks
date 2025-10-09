@@ -166,15 +166,13 @@ resource "aws_launch_template" "eks_worker_lt" {
   image_id      = "ami-0360c520857e3138f"
   instance_type = "t3.medium"
   key_name      = "windows"
-  security_group_ids = [aws_security_group.eks_sg.id]
+
   iam_instance_profile {
     name = aws_iam_instance_profile.eks_worker_profile.name
   }
-}
 
-resource "aws_iam_instance_profile" "eks_worker_profile" {
-  name = "eks-worker-instance-profile"
-  role = aws_iam_role.eks_worker_role.name
+  # Use vpc_security_group_ids instead of security_group_ids
+  vpc_security_group_ids = [aws_security_group.eks_sg.id]
 }
 
 # ---------------------------
