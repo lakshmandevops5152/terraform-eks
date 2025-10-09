@@ -2,8 +2,14 @@ provider "aws" {
   region = "ap-south-1"
 }
 
+# -------------------------------
+# VPC and Subnet
+# -------------------------------
 resource "aws_vpc" "eks_vpc" {
   cidr_block = "10.0.0.0/16"
+  tags = {
+    Name = "eks-vpc"
+  }
 }
 
 resource "aws_subnet" "eks_subnet" {
@@ -11,33 +17,24 @@ resource "aws_subnet" "eks_subnet" {
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "ap-south-1a"
   map_public_ip_on_launch = true
-}
-
-resource "aws_eks_cluster" "eks_cluster" {
-  name     = "my-eks-cluster"
-  role_arn = aws_iam_role.eks_cluster_role.arn
-
-  vpc_config {
-    subnet_ids = [aws_subnet.eks_subnet.id]
+  tags = {
+    Name = "eks-subnet"
   }
-
-  depends_on = [aws_iam_role_policy_attachment.eks_cluster_policy]
 }
 
+# -------------------------------
+# IAM Roles
+# -------------------------------
 resource "aws_iam_role" "eks_cluster_role" {
   name = "eks_cluster_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Action    = "sts:AssumeRole"
-        Effect    = "Allow"
-        Principal = {
-          Service = "eks.amazonaws.com"
-        }
-      }
-    ]
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "eks.amazonaws.com" }
+    }]
   })
 }
 
@@ -51,15 +48,11 @@ resource "aws_iam_role" "eks_worker_role" {
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Action    = "sts:AssumeRole"
-        Effect    = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+    }]
   })
 }
 
@@ -73,19 +66,14 @@ resource "aws_iam_role_policy_attachment" "ec2_container_registry_policy" {
   role       = aws_iam_role.eks_worker_role.name
 }
 
-resource "aws_launch_configuration" "eks_worker" {
-  name_prefix   = "eks-worker-"
-  image_id      = "ami-xxxxxxxxxx" # Replace with a suitable Amazon Linux 2 AMI for EKS
-  instance_type = "t3.medium"
-  security_groups = [aws_security_group.eks_worker_sg.id]
-  iam_instance_profile = aws_iam_instance_profile.eks_worker_profile.name
-}
-
 resource "aws_iam_instance_profile" "eks_worker_profile" {
   name = "eks_worker_profile"
   role = aws_iam_role.eks_worker_role.name
 }
 
+# -------------------------------
+# Security Group
+# -------------------------------
 resource "aws_security_group" "eks_worker_sg" {
   name        = "eks_worker_sg"
   description = "Allow all inbound traffic for EKS worker nodes"
@@ -106,6 +94,34 @@ resource "aws_security_group" "eks_worker_sg" {
   }
 }
 
+# -------------------------------
+# EKS Cluster
+# -------------------------------
+resource "aws_eks_cluster" "eks_cluster" {
+  name     = "my-eks-cluster"
+  role_arn = aws_iam_role.eks_cluster_role.arn
+
+  vpc_config {
+    subnet_ids = [aws_subnet.eks_subnet.id]
+  }
+
+  depends_on = [aws_iam_role_policy_attachment.eks_cluster_policy]
+}
+
+# -------------------------------
+# Launch Configuration
+# -------------------------------
+resource "aws_launch_configuration" "eks_worker" {
+  name_prefix          = "eks-worker-"
+  image_id             = "ami-0360c520857e3138f" # ubuntu EKS AMI (replace with latest in ap-south-1)
+  instance_type        = "t3.medium"
+  security_groups      = [aws_security_group.eks_worker_sg.id]
+  iam_instance_profile = aws_iam_instance_profile.eks_worker_profile.name
+}
+
+# -------------------------------
+# Auto Scaling Group
+# -------------------------------
 resource "aws_autoscaling_group" "eks_asg" {
   desired_capacity     = 2
   max_size             = 3
@@ -114,7 +130,12 @@ resource "aws_autoscaling_group" "eks_asg" {
   launch_configuration = aws_launch_configuration.eks_worker.id
 
   health_check_type          = "EC2"
-  health_check_grace_period = 300
-  force_delete              = true
+  health_check_grace_period  = 300
+  force_delete               = true
 
   tag {
+    key                 = "Name"
+    value               = "eks-worker-node"
+    propagate_at_launch = true
+  }
+}
