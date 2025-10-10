@@ -39,7 +39,7 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 ansiColor('xterm') {
-                    sh 'terraform destroy -auto-approve tfplan'
+                    sh 'terraform apply -auto-approve tfplan'
                 }
             }
         }
