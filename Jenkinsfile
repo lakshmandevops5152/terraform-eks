@@ -13,7 +13,7 @@ pipeline {
                 ansiColor('xterm') {
                     sh '''
                         terraform init
-                        terraform plan -out=tfplan
+                        terraform  -out=tfplan
                     '''
                 }
             }
@@ -39,7 +39,7 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 ansiColor('xterm') {
-                    sh 'terraform apply -auto-approve tfplan'
+                    sh 'terraform destroy -auto-approve tfplan'
                 }
             }
         }
