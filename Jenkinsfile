@@ -13,7 +13,7 @@ pipeline {
                 ansiColor('xterm') {
                     sh '''
                         terraform init
-                        terraform  -out=tfplan
+                        terraform plan -out=tfplan
                     '''
                 }
             }
