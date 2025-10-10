@@ -144,6 +144,20 @@ resource "aws_iam_role_policy_attachment" "eks_container_registry_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
+# -------------------------------
+# 4. EKS Cluster
+# -------------------------------
+resource "aws_eks_cluster" "eks_cluster" {
+  name     = "my-eks-cluster"
+  role_arn = aws_iam_role.eks_cluster_role.arn
+
+  vpc_config {
+    subnet_ids         = [aws_subnet.eks_subnet1.id, aws_subnet.eks_subnet2.id]
+    security_group_ids = [aws_security_group.eks_cluster_sg.id]
+  }
+
+  depends_on = [aws_iam_role_policy_attachment.eks_cluster_policy]
+}
 
 # -------------------------------
 # 5. Node Group
